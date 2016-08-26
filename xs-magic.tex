@@ -1,108 +1,83 @@
 \documentclass[mathserif,hyperref={urlcolor=cyan,colorlinks=true}]{beamer}
 \usepackage[utf8]{inputenc}
 
-\usetheme{Warsaw}
-%\usetheme{Ilmenau}
-%\usetheme{Berlin}
+\usetheme{metropolis}
 
-%\usecolortheme{orchid}
-%\usecolortheme{rose}
-%\usecolortheme{whale}
+\usepackage{minted}
+\usemintedstyle{tango}
 
-\usepackage{lmodern}
 \usepackage[T1]{fontenc}
-\usepackage{textcomp}
 
 \beamertemplatenavigationsymbolsempty
 \setbeamertemplate{footline}{}
 
+\definecolor{bgc}{HTML}{272822}
+
+\newminted{perl}{fontsize=\fontsize{9}{9}}
+\newminted{c}{fontsize=\fontsize{9}{9}}
+\newminted{bash}{fontsize=\fontsize{9}{9}}
+
 \title{Non-canonical XS Objects\\With a Bit of Perl Magic}
 \author{Sergey Aleynikov}
 \institute{Crazy Panda}
-\date[May 2015]{YAPC Russia 2015}
+\date[May 2015]{YAPC::Russia 2015}
 \begin{document}
 
 \begin{frame}
 \titlepage
 \end{frame}
 
-{
-%\setbeamercolor{background canvas}{bg=black}
-%\setbeamertemplate{frametitle}[default][colsep=-4bp,rounded=false,shadow=false]
-\begin{frame}{Canonical XS objects}
-\only<0>{
-\begin{block}{DateTIme.xs}
-SV*\newline\noindent
-DateTime::new()\newline\noindent
-CODE:\newline\noindent
-\phantom{x}\hspace{1em}DateTime* THIS = new DateTime();\newline\noindent
-\newline\noindent
-\phantom{x}\hspace{1em}RETVAL = newSV(0);\newline\noindent
-\phantom{x}\hspace{1em}SV* intref = newSVrv(RETVAL, CLASS);\newline\noindent
-\phantom{x}\hspace{1em}sv{\_}setiv(intref, PTR2IV(THIS));\newline\noindent
-OUTPUT:\newline\noindent
-\phantom{x}\hspace{1em}RETVAL
-\end{block}
-}
+\begin{frame}[fragile]{Canonical XS objects}
+\begin{ccode}
+MODULE = DateTime   PACKAGE = DateTime
 
-\begin{figure}
-\scalebox{0.65}{
-    \includegraphics{new_nont.png}
-}
-\end{figure}
+SV*
+new(const char* CLASS)
+CODE:
+    DateTime* THIS = new DateTime();
 
-\end{frame}
-}
-
-\begin{frame}{Accessing canonical object}
-\only<0>{
-\begin{block}{DateTIme.xs}
-void\newline\noindent
-DateTime::dump(SV* obj)\newline\noindent
-CODE:\newline\noindent
-\phantom{x}\hspace{1em}if (!sv{\_}isobject(obj))\newline\noindent
-\phantom{x}\hspace{3em}croak("Not a DateTime object");\newline\noindent
-\phantom{x}\hspace{1em}DateTime* THIS = (DateTime*)SvIV(SvRV(obj));\newline\noindent
-\phantom{x}\hspace{1em}THIS->dump();\newline\noindent
-\end{block}
-}
-
-\begin{figure}
-\scalebox{0.65}{
-    \includegraphics{dump-nont.png}
-}
-\end{figure}
-
+    RETVAL = newRV_noinc(newSViv(PTR2IV(THIS)));
+    sv_bless(RETVAL, gv_stashpv(CLASS, 0));
+OUTPUT:
+    RETVAL
+\end{ccode}
 \end{frame}
 
-\begin{frame}{Typemaps - write less}
-\begin{block}{typemap}
-DateTime*\hspace{1em}O{\_}OBJECT
-\end{block}
-%\pause
+\begin{frame}[fragile]{Accessing canonical object}
+\begin{ccode}
+MODULE = DateTime   PACKAGE = DateTime
 
-\only<0>{
-\begin{block}{DateTIme.xs}
-DateTIme*\newline\noindent
-DateTIme::new()\newline\noindent
-CODE:\newline\noindent
-\phantom{x}\hspace{1em}RETVAL = new DateTime();\newline\noindent
-OUTPUT:\newline\noindent
-\phantom{x}\hspace{1em}RETVAL\newline\noindent
-\newline\noindent
-void\newline\noindent
-DateTime::dump()\newline\noindent
-CODE:\newline\noindent
-\phantom{x}\hspace{1em}THIS->dump();\newline\noindent
-\end{block}
-}
+void
+dump(SV* obj)
+CODE:
+    if (!sv_isobject(obj))
+        croak("Not a DateTime object");
 
-\begin{figure}
-\scalebox{0.6}{
-    \includegraphics{new-tmap.png}
-}
-\end{figure}
+    DateTime* THIS = (DateTime*)SvIV(SvRV(obj));
+    THIS->dump;
+\end{ccode}
+\end{frame}
 
+\begin{frame}[fragile]{Write less with typemaps}
+\begin{ccode}
+typemap
+DateTime* O_OBJECT
+
+DateTime.xs
+MODULE = DateTime   PACKAGE = DateTime
+
+DateTime*
+DateTime::new()
+CODE:
+    RETVAL = new DateTime();
+OUTPUT:
+    RETVAL
+
+void
+DateTime::dump()
+CODE:
+    THIS->dump();
+\end{ccode}
 \end{frame}
 
 \begin{frame}{Why not?}
@@ -133,7 +108,6 @@ CODE:\newline\noindent
     \scalebox{0.35}{
         \includegraphics{Shostakovich.jpg}
     }
-%\pause
 \begin{center}
 {\bf
 {\tiny
@@ -156,14 +130,14 @@ CODE:\newline\noindent
 
 \begin{frame}{True magic}
 \begin{itemize}
-\item<1-> @ISA
-\item<1-> \%\^{}H
-\item<1-> \%SIG
-\item<1-> \$!
-\item<1-> \$DB::single
-\item<2-> referee behind weaken()'d reference
-\item<3-> tie()'d variable
-\item<4-> more than 40 types of built-in magic
+\item @ISA
+\item \%\^{}H
+\item \%SIG
+\item \$!
+\item \$DB::single
+\item referee behind weaken()'d reference
+\item tie()'d variable
+\item ...more than 40 types
 \end{itemize}
 \end{frame}
 
@@ -171,91 +145,100 @@ CODE:\newline\noindent
 \begin{itemize}
 \item<1-> Acts on event trigger
     \begin{itemize}
-    \item<2-> svt{\_}get
-    \item<2-> svt{\_}set
-    \item<2-> svt{\_}free
-    \item<2-> svt{\_}clear
+    \item<1-> svt{\_}get
+    \item<1-> svt{\_}set
+    \item<1-> svt{\_}free
+    \item<1-> svt{\_}clear
     \end{itemize}
-\item<3-> Special types are checked at various places
-\item<4-> PERL{\_}MAGIC{\_}ext reserved for extensions
-\item<5-> sv{\_}magicext API call
+\item<2-> Special types are checked at various places
+\item<3-> PERL{\_}MAGIC{\_}ext reserved for extensions
+\item<3-> sv{\_}magicext API call
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Creating magical object}
-\only<0>{
-\begin{block}{DateTime.xs}
-STATIC MGVTBL marker;\newline\noindent
-\newline\noindent
-SV*\newline\noindent
-DateTime::new()\newline\noindent
-CODE:\newline\noindent
-\phantom{x}\hspace{1em}RETVAL = newRV{\_}noinc(\&PL{\_}sv{\_}undef);\newline\noindent
-\phantom{x}\hspace{1em}sv{\_}bless(RETVAL, gv{\_}stashpv(CLASS, 0));\newline\noindent
-\phantom{x}\hspace{1em}DateTime* THIS = new DateTime();\newline\noindent
-\phantom{x}\hspace{1em}sv{\_}magicext(RETVAL, NULL, PERL{\_}MAGIC{\_}ext, \&marker, (const char*)THIS, 0);\newline\noindent
-\phantom{x}\hspace{1em}SvRMAGICAL{\_}off(RETVAL);\newline\noindent
-OUTPUT:\newline\noindent
-\phantom{x}\hspace{1em}RETVAL\newline\noindent
-\end{block}
-}
+\begin{frame}[fragile]{Creating magical object}
+\begin{ccode}
+STATIC MGVTL marker;
 
-\begin{figure}
-\scalebox{0.6}{
-    \includegraphics{new-magic.png}
-}
-\end{figure}
+MODULE = DateTime   PACKAGE = DateTIme
 
+SV*
+new(const char* CLASS)
+CODE:
+    SV* obj = newHV();
+    DateTime THIS* = new DateTIme();
+    sv_magicext(obj, NULL, PERL_MAGIC_ext, &marker,
+        (const char*)THIS, 0);
+    SvRMAGICAL_off(obj);
+
+    RETVAL = newRV_noinc(obj);
+    sv_bless(RETVAL, gv_stashpv(CLASS, 0));
+OUTPUT:
+    RETVAL
+\end{ccode}
 \end{frame}
 
-\begin{frame}{Accessing magical object}
-\only<0>{
-\begin{block}{DateTime.xs}
-void\newline\noindent
-DateTime::dump()\newline\noindent
-CODE:\newline\noindent
-\phantom{x}\hspace{1em}MAGIC* mg = mg{\_}findext(THIS, PERL{\_}MAGIC{\_}ext, \&marker);\newline\noindent
-\phantom{x}\hspace{1em}if (!mg) croak("Not a DateTime object");\newline\noindent
-\phantom{x}\hspace{1em}DateTime* THIS = (DateTime*)mg->mg{\_}ptr;\newline\noindent
-\phantom{x}\hspace{1em}THIS->dump();\newline\noindent
-\end{block}
-}
+\begin{frame}[fragile]{Accessing magical object}
+\begin{ccode}
+MODULE = DateTime   PACKAGE = DateTIme
 
-\begin{figure}
-\scalebox{0.5}{
-    \includegraphics{dump-magic.png}
-}
-\end{figure}
+void
+dump(SV* obj)
+CODE:
+    if (!SvROK(obj)) croak("Not a DateTime object");
 
+    MAGIC* mg = mg_findext(SvRV(obj), PERL_MAGIC_ext, &marker);
+    if (!mg) croak("Not a DateTime object");
+
+    DateTime THIS* = (DateTime*)(mg->mg_ptr);
+    THIS->dump();
+\end{ccode}
 \end{frame}
 
-\begin{frame}{Lifecycle}
-\begin{figure}
-\scalebox{0.5}{
-    \includegraphics{destroy-magic.png}
-}
-\end{figure}
+\begin{frame}[fragile]{Lifecycle}
+\begin{ccode}
+MODULE = DateTime   PACKAGE = DateTIme
+
+void
+DESTROY(SV* obj)
+CODE:
+    MAGIC* mg = mg_findext(SvRV(obj), PERL_MAGIC_ext, &marker);
+    if (mg) {
+        DateTime THIS* = (DateTime*)(mg->mg_ptr);
+        delete THIS;
+    }
+\end{ccode}
 \end{frame}
 
-\begin{frame}{Example}
-\begin{figure}
-\scalebox{0.7}{
-    \includegraphics{ex-1.png}
+\begin{frame}[fragile]{Example}
+\begin{perlcode}
+use DateTime;
+use DDP;
+
+my $foo = DateTime->new;
+$foo->{bar} = 42;
+
+$f->dump;
+p $foo;
+\end{perlcode}
+\pause
+\begin{bashcode}
+% perl test.pl
+dump
+DateTime    {
+    internals:  {
+        bar 42
+    }
 }
-\end{figure}
-\begin{figure}
-\scalebox{0.7}{
-    \includegraphics{ex-2.png}
-}
-\end{figure}
+\end{bashcode}
 \end{frame}
 
 \begin{frame}{Extending objects}
 \begin{itemize}
-\item<1-> Add data \& methods to pointer-based objects
-\item<2-> Add data to perl hashes
-\item<3-> Attach multiple C++ objects
-\item<4-> Attach Perl data to CV*
+\item Add data \& methods to pointer-based objects
+\item Add data to perl hashes
+\item Attach multiple C++ objects
+\item Attach Perl data to CV*
 \end{itemize}
 \end{frame}
 
@@ -267,15 +250,23 @@ CODE:\newline\noindent
 \end{figure}
 \end{frame}
 
-\begin{frame}{Closures?}
-\begin{figure}
-\scalebox{0.6}{
-    \includegraphics{cv-perl.png}
+\begin{frame}[fragile]{Closures?}
+\begin{perlcode}
+__PACKAGE__->install_accessor("foo", $bar);
+__PACKAGE__->install_accessor("bar", $baz);
+
+sub install_accessor {
+    my ($package, $name, $data) = @_;
+
+    no strict 'refs';
+    *{$package.'::'.$name} = sub {
+        return $data;
+    }
 }
-\end{figure}
+\end{perlcode}
 \end{frame}
 
-\begin{frame}{Real magic}
+\begin{frame}[fragile]{Real magic}
 %accessors as an example of additional data attached to XS
 %point to XSANY.any_ptr unsafety
 %CV* cv = newXS_flags(full_name_buf, CAIXS_inherited_accessor, __FILE__, NULL, 0);
@@ -283,20 +274,24 @@ CODE:\newline\noindent
 %SvREFCNT_dec_NN((SV*)keys_av);
 %note difference from previous magic installeri
 
-\begin{figure}
-\scalebox{0.59}{
-    \includegraphics{cv-def.png}
+\begin{ccode}
+CV*
+Perl_newXS_flags(pTHX_ const char* name, XSUBADDR_t subaddr,
+    const char* const filename, const char* proto, I32 flags);
+
+void
+install_accessor(pTHX_ const char* name, SV* data) {
+    CV* cv = newXS_flags(name, xs_accessor, __FILE__, NULL, 0);
+
+#ifndef MULTIPLICITY
+    CvXSSUBANY(cv).any_ptr = (void*)data;
+#endif
+
+    sv_magicext((SV*)cv, data, PERL_MAGIC_ext, &marker, NULL, 0);
+    SvREFCNT_dec_NN(data);
+    SvRMAGICAL_off((SV*)cv);
 }
-\end{figure}
-
-\pause
-
-
-\begin{figure}
-\scalebox{0.45}{
-    \includegraphics{cv-install.png}
-}
-\end{figure}
+\end{ccode}
 \end{frame}
 
 \begin{frame}{}
